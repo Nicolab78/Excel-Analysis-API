@@ -3,6 +3,9 @@ from fastapi import UploadFile
 import shutil
 from pathlib import Path
 import uuid
+import pandas as pd
+
+
 
 app = FastAPI()
 
@@ -32,4 +35,36 @@ async def upload_file(file: UploadFile):
         "file_id" : file_id,
         "filename" : file.filename,
         "message" : "Fichier uploadé avec succès"
+    }
+
+
+@app.get("/analyse/{file_id}")
+async def analyse(file_id: str):
+    """Analyse un fichier CSV ou Excel"""
+    
+    fichiers = list(Path("uploads").glob(f"{file_id}*"))
+    
+    if not fichiers:
+        return {"error": "Fichier non trouvé"}
+    
+    file_path = fichiers[0]
+    
+    if file_path.suffix == ".xlsx":
+        df = pd.read_excel(file_path)
+    else:
+        df = pd.read_csv(file_path)
+    
+    analyse = {
+        "nb_lignes": len(df),
+        "nb_colonnes": len(df.columns),
+        "colonnes": df.columns.tolist(),
+        "types_donnees": df.dtypes.astype(str).to_dict(),
+        "stats": df.describe().to_dict(),
+        "valeurs_manquantes": df.isnull().sum().to_dict()
+    }
+    
+    return {
+        "file_id": file_id,
+        "filename": file_path.name,
+        "analyse": analyse
     }
